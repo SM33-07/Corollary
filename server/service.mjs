@@ -5,5 +5,5 @@ import { compute } from "@prisma/composer-prisma-cloud";
 export default compute({
   name: "query-advisor-server",
   deps: {},
-  build: node({ module: import.meta.url, dir: "dist", entry: "index.js" }),
+  build: node({ module: import.meta.url, dir: "dist", entry: "server.js" }),
 });

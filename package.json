@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build": "npm --prefix server install && npm --prefix server run build"
+  },
   "dependencies": {
     "@prisma/client": "^7.10.0",
     "@prisma/composer": "0.16.0",
