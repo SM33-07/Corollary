@@ -29,7 +29,7 @@ export function encrypt(plaintext: string): string {
   }
 
   const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, getEncryptionKey(), iv);
+  const cipher = createCipheriv(ALGORITHM, getEncryptionKey(), iv, { authTagLength: AUTH_TAG_LENGTH });
   const ciphertext = Buffer.concat([
     cipher.update(plaintext, 'utf8'),
     cipher.final(),
@@ -76,7 +76,7 @@ export function decrypt(encryptedPayload: string): string {
   const ciphertext = Buffer.from(ciphertextHex, 'hex');
 
   try {
-    const decipher = createDecipheriv(ALGORITHM, getEncryptionKey(), iv);
+    const decipher = createDecipheriv(ALGORITHM, getEncryptionKey(), iv, { authTagLength: AUTH_TAG_LENGTH });
     decipher.setAuthTag(authTag);
     return Buffer.concat([
       decipher.update(ciphertext),
