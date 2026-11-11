@@ -10,7 +10,7 @@ function loadEnv(): EnvConfig {
 
   const rawPort = process.env.PORT || '3001';
   const port = Number(rawPort);
-  if (isNaN(port) || port <= 0) {
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     throw new Error(`Invalid PORT specified in environment: "${process.env.PORT}"`);
   }
 
@@ -22,6 +22,11 @@ function loadEnv(): EnvConfig {
   const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
   if (!ENCRYPTION_KEY) {
     missingKeys.push('ENCRYPTION_KEY');
+  } else if (!/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
+    throw new Error(
+      'Invalid ENCRYPTION_KEY: expected exactly 64 hexadecimal characters (32 bytes). ' +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
   }
 
   if (missingKeys.length > 0) {
