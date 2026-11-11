@@ -7,7 +7,7 @@ const keyA = randomBytes(32).toString('hex');
 process.env.ENCRYPTION_KEY = keyA;
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 
-const { encrypt, decrypt } = require('../services/encryption.service') as typeof import('../services/encryption.service');
+const { encrypt, decrypt } = require('./encryption.service') as typeof import('./encryption.service');
 
 describe('AES-256-GCM encryption service', () => {
   it('roundtrips credential strings, including empty and unicode values', () => {
@@ -42,7 +42,7 @@ describe('AES-256-GCM encryption service', () => {
     const script = `
       process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
       process.env.ENCRYPTION_KEY = '${keyB}';
-      const service = require(${JSON.stringify(require.resolve('../services/encryption.service'))});
+      const service = require(${JSON.stringify(require.resolve('./encryption.service'))});
       service.decrypt(${JSON.stringify(payload)});
     `;
     const result = spawnSync(process.execPath, ['--import', 'tsx', '-e', script], {
