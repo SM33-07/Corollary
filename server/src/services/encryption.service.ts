@@ -64,8 +64,8 @@ export function decrypt(encryptedPayload: string): string {
   }
 
   if (
-    !/^[0-9a-fA-F]{24}$/.test(ivHex) ||
-    !/^[0-9a-fA-F]{32}$/.test(authTagHex) ||
+    !new RegExp(`^[0-9a-fA-F]{${IV_LENGTH * 2}}$`).test(ivHex) ||
+    !new RegExp(`^[0-9a-fA-F]{${AUTH_TAG_LENGTH * 2}}$`).test(authTagHex) ||
     !/^(?:[0-9a-fA-F]{2})*$/.test(ciphertextHex)
   ) {
     throw new Error('Invalid encrypted payload format.');
