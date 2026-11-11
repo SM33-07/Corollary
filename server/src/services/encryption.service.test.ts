@@ -1,5 +1,4 @@
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { describe, it } from 'node:test';
 
@@ -8,6 +7,8 @@ process.env.ENCRYPTION_KEY = keyA;
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 
 const { encrypt, decrypt } = require('./encryption.service') as typeof import('./encryption.service');
+const envModulePath = require.resolve('../config/env');
+const serviceModulePath = require.resolve('./encryption.service');
 
 describe('AES-256-GCM encryption service', () => {
   it('roundtrips credential strings, including empty and unicode values', () => {
@@ -39,18 +40,22 @@ describe('AES-256-GCM encryption service', () => {
   it('rejects a payload encrypted with a different key', () => {
     const payload = encrypt('secret value');
     const keyB = randomBytes(32).toString('hex');
-    const script = `
-      process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
-      process.env.ENCRYPTION_KEY = '${keyB}';
-      const service = require(${JSON.stringify(require.resolve('./encryption.service'))});
-      service.decrypt(${JSON.stringify(payload)});
-    `;
-    const result = spawnSync(process.execPath, ['--import', 'tsx', '-e', script], {
-      encoding: 'utf8',
-      env: { ...process.env, ENCRYPTION_KEY: keyB },
-    });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /authentication failed/);
+
+    // env.ts is intentionally evaluated once at startup, so reload both modules
+    // to exercise decryption with an independently loaded key.
+    process.env.ENCRYPTION_KEY = keyB;
+    delete require.cache[serviceModulePath];
+    delete require.cache[envModulePath];
+
+    try {
+      const wrongKeyService = require('./encryption.service') as typeof import('./encryption.service');
+      assert.throws(() => wrongKeyService.decrypt(payload), /authentication failed/);
+    } finally {
+      process.env.ENCRYPTION_KEY = keyA;
+      delete require.cache[serviceModulePath];
+      delete require.cache[envModulePath];
+      require('../config/env');
+    }
   });
 
   it('rejects unsupported versions and malformed formats clearly', () => {
@@ -60,19 +65,21 @@ describe('AES-256-GCM encryption service', () => {
   });
 
   it('fails during env module loading when ENCRYPTION_KEY is absent or malformed', () => {
-    const envPath = require.resolve('../config/env');
     for (const invalidKey of [undefined, 'abcd', 'z'.repeat(64)]) {
-      const script = `
-        process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
-        ${invalidKey === undefined ? 'delete process.env.ENCRYPTION_KEY;' : `process.env.ENCRYPTION_KEY = '${invalidKey}';`}
-        require(${JSON.stringify(envPath)});
-      `;
-      const result = spawnSync(process.execPath, ['--import', 'tsx', '-e', script], {
-        encoding: 'utf8',
-        env: { ...process.env, ENCRYPTION_KEY: invalidKey ?? '' },
-      });
-      assert.notEqual(result.status, 0);
-      assert.match(result.stderr, /ENCRYPTION_KEY/);
+      if (invalidKey === undefined) {
+        delete process.env.ENCRYPTION_KEY;
+      } else {
+        process.env.ENCRYPTION_KEY = invalidKey;
+      }
+      delete require.cache[envModulePath];
+
+      try {
+        assert.throws(() => require('../config/env'), /ENCRYPTION_KEY/);
+      } finally {
+        process.env.ENCRYPTION_KEY = keyA;
+        delete require.cache[envModulePath];
+        require('../config/env');
+      }
     }
   });
 });
