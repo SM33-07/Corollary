@@ -10,7 +10,7 @@ function loadEnv(): EnvConfig {
 
   const rawPort = process.env.PORT || '3001';
   const port = Number(rawPort);
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+  if (isNaN(port) || port <= 0) {
     throw new Error(`Invalid PORT specified in environment: "${process.env.PORT}"`);
   }
 
