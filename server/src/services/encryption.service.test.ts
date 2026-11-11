@@ -38,12 +38,19 @@ describe('AES-256-GCM encryption service', () => {
 
   it('rejects a payload encrypted with a different key', () => {
     const payload = encrypt('secret value');
-    process.env.ENCRYPTION_KEY = randomBytes(32).toString('hex');
-    try {
-      assert.throws(() => decrypt(payload), /authentication failed/);
-    } finally {
-      process.env.ENCRYPTION_KEY = keyA;
-    }
+    const keyB = randomBytes(32).toString('hex');
+    const script = `
+      process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+      process.env.ENCRYPTION_KEY = '${keyB}';
+      const service = require(${JSON.stringify(require.resolve('../services/encryption.service'))});
+      service.decrypt(${JSON.stringify(payload)});
+    `;
+    const result = spawnSync(process.execPath, ['--import', 'tsx', '-e', script], {
+      encoding: 'utf8',
+      env: { ...process.env, ENCRYPTION_KEY: keyB },
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /authentication failed/);
   });
 
   it('rejects unsupported versions and malformed formats clearly', () => {
@@ -60,7 +67,10 @@ describe('AES-256-GCM encryption service', () => {
         ${invalidKey === undefined ? 'delete process.env.ENCRYPTION_KEY;' : `process.env.ENCRYPTION_KEY = '${invalidKey}';`}
         require(${JSON.stringify(envPath)});
       `;
-      const result = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+      const result = spawnSync(process.execPath, ['--import', 'tsx', '-e', script], {
+        encoding: 'utf8',
+        env: { ...process.env, ENCRYPTION_KEY: invalidKey ?? '' },
+      });
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /ENCRYPTION_KEY/);
     }
